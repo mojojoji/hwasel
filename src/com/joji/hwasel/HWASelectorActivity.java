@@ -1,11 +1,9 @@
 package com.joji.hwasel;
 
 import java.io.*;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.StringTokenizer;
 import java.util.concurrent.TimeoutException;
 
 
@@ -16,11 +14,8 @@ import android.app.ProgressDialog;
 import android.app.AlertDialog.Builder;
 import android.app.ListActivity;
 import android.content.DialogInterface;
-import android.content.DialogInterface.OnCancelListener;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.content.res.Configuration;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
@@ -38,16 +33,18 @@ public class HWASelectorActivity extends ListActivity {
 	String propText;
 	ListView listView;
 	List<ApplicationInfo> packages;
-	String delimiter=":";
+	//List<String> hwuiallowed;
+	//String delimiter=":";
 	ProgressDialog progressDialog;
 	boolean selectall=false;
+	String HWUI_ALLOW="/data/local/hwui.allow/";
 	
 	/** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         progressDialog=new ProgressDialog(this);
-        propText="";
+        
         AsyncLoad al=new AsyncLoad();
         al.execute();
     }
@@ -55,52 +52,20 @@ public class HWASelectorActivity extends ListActivity {
 	//Refresh the selections
     private void refreshList() 
     {
-    	String wui=getWhitelistString();
-        for (int j = 0; j < packages.size(); j++)
+    	for (int j = 0; j < packages.size(); j++)
         {
         	ApplicationInfo packageInfo=packages.get(j);
-        	if(wui.contains(packageInfo.packageName)&&!packageInfo.packageName.equals("android"))
-    		listView.setItemChecked(j, true);
-    	else
-    		listView.setItemChecked(j, false);
-      }
+        	if(isWhitelist(packageInfo.packageName))
+        		listView.setItemChecked(j, true);
+        	else
+        		listView.setItemChecked(j, false);
+        }
 	}
-	
-	
-	//Get the whitelist string from loaded proptext
-	private String getWhitelistString()
-	{
-		String wui="";
-		int startw=propText.indexOf("hwui.whitelist");
-		if(startw>=0)
-		{
-			//Common for both builds
-			int endw=propText.indexOf('\n',startw);
-			
-			Log.d("-",startw+" - "+endw);
-			wui=propText.substring(startw+15, endw);
-			//Log.d("Res",wui);
-		}
-		return wui;
-			
-	}
-	
-	//Get the blacklist string from loaded proptext
-	private String getBlacklistString()
-	{
-		String bui="";
-	int startb=propText.indexOf("hwui.blacklist");
-	if(startb>0)
-	{
-		//Common for both builds
-		int endb=propText.indexOf('\n',startb);
-		bui=propText.substring(startb+15, endb);
-		Log.d("Res",bui);
-		}
-		return bui;
-		
-	}
-	
+    private boolean isWhitelist(String packName)
+    {
+    	return new File(HWUI_ALLOW+packName).exists();
+    }
+
 	//AsyncTask for loading local.prop
 	private class AsyncLoad extends AsyncTask<Void, Void, String[]>
 	{
@@ -114,8 +79,8 @@ public class HWASelectorActivity extends ListActivity {
 		        RootTools.remount("/data/", "rw");
 		        try {
 		        	//RootTools.sendShell("chmod 0777 /system/build.prop", 0);
-		        	RootTools.sendShell("chmod 0777 /data/", 0);
-		        	RootTools.sendShell("chmod 0777 /data/local.prop", 0);
+		        	RootTools.sendShell("chmod 0777 /data/local/", 0);
+		        	RootTools.sendShell("chmod 0777 /data/local/hwui.allow/", 0);
 		        	
 				} catch (IOException e1) {
 					// TODO Auto-generated catch block
@@ -128,31 +93,19 @@ public class HWASelectorActivity extends ListActivity {
 					e1.printStackTrace();
 				}
 		        
-		        
-		    	try 
-		    	{        		
-		    		//loadBuildprop();
-		    		
-		    		//Loading local Prop
-		    		loadlocalprop();
-		    		
-		    		//Get List of Installed Apps,sort and put into array
-		    		final PackageManager pm = getPackageManager();
-			      
-		            packages= pm.getInstalledApplications(PackageManager.GET_META_DATA);
-		            Collections.sort(packages, new AppSort(pm));
-		            
-		            strArray=new String[packages.size()];
-		            for (int j = 0; j < packages.size(); j++) 
-		            {
-		            	ApplicationInfo packageInfo=packages.get(j);
-		            	strArray[j]=(String) pm.getApplicationLabel(packageInfo);
-		            	
-		            }
-		            return strArray;
-		    	} catch (IOException e) {
-		    	    // something went wrong, deal with it hereandroid 
-		    	}
+	    		//Get List of Installed Apps,sort and put into array
+	    		final PackageManager pm = getPackageManager();
+		      
+	            packages= pm.getInstalledApplications(PackageManager.GET_META_DATA);
+	            Collections.sort(packages, new AppSort(pm));
+	            
+	            strArray=new String[packages.size()];
+	            for (int j = 0; j < packages.size(); j++) 
+	            {
+	            	ApplicationInfo packageInfo=packages.get(j);
+	            	strArray[j]=(String) pm.getApplicationLabel(packageInfo);
+	            }
+	            return strArray;
 			}
 			
 			return null;
@@ -214,19 +167,19 @@ public class HWASelectorActivity extends ListActivity {
 		{
 			//Epsylon Build
 			Toast.makeText( getApplicationContext(), "Epsylon Build Detected", Toast.LENGTH_LONG).show();
-			delimiter=":";
+			//delimiter=":";
 		}
 		else if(buildhost.equals("quarx-VirtualBox"))
 		{
 			//Quarx build
 			Toast.makeText( getApplicationContext(), "Quarx Build Detected", Toast.LENGTH_LONG).show();
-			delimiter=".";
+			//delimiter=".";
 		}
 		else if(buildhost.equals("fuzz"))
 		{
 			//Fuzz build
 			Toast.makeText( getApplicationContext(), "Fuzz Build Detected", Toast.LENGTH_LONG).show();
-			delimiter=":";
+			//delimiter=":";
 		}
 		else
 		{
@@ -234,168 +187,98 @@ public class HWASelectorActivity extends ListActivity {
 			}
 	}
 			
-	//Loads the file
-	private void loadlocalprop() throws IOException,FileNotFoundException
-	{
-		File myFile = new File("/data/local.prop");
-		if(myFile.exists())
-		{
-			FileInputStream fIn = new FileInputStream(myFile);
-			BufferedReader myReader = new BufferedReader(
-					new InputStreamReader(fIn));
-			String aDataRow = "";
-			propText = "";
-			while ((aDataRow = myReader.readLine()) != null) 
-			{
-				propText += aDataRow + "\n";
-				
-			}
-			myReader.close();
-			//aBuffer=aBuffer.replace("#hwui.whitelist", "hwui.whitelist");
-			propText=propText.replace("#hwui.blacklist", "hwui.blacklist");
-			propText=propText.replace("hwui.blacklist", "#hwui.blacklist");
-		}
-		else
-		{
-			propText="";
-		}
-		
-		
-	}
+	
 	
 	//Generates whitelist from selected items
-	private String generateWhitelistFromSelected()
-	{
-		//Get SeletectedItems
-		SparseBooleanArray sel=	listView.getCheckedItemPositions();
-		String whitelist="";
-		
-		for(int i=0;i<packages.size();i++)
-		{
-			if(sel.get(i))
-			{
-				if(whitelist=="")
-					whitelist+=packages.get(i).packageName;
-				else
-					whitelist+=delimiter+packages.get(i).packageName;
-			}
-		}
-		
-		if(whitelist.equals(""))
-			whitelist="-none";
-		
-		
-		return whitelist;
-	}
 	
 	//Saves the proptext into local.prop with new whitelist
-	private void save() 
+	private void save() throws IOException, RootToolsException, TimeoutException 
 	{
-		boolean result=RootTools.remount("/data/", "rw");
-		if(result)
-		{
-			String whitelist=generateWhitelistFromSelected();
-			String prevwhitelist=getWhitelistString();
-			//If already whitelist is not present
-			
-			if(propText.equals(""))
-				propText="hwui.whitelist="+whitelist+"\n";
-			else
-				propText=propText.replace("hwui.whitelist="+prevwhitelist+"\n", "hwui.whitelist="+whitelist+"\n");
-			
-			
-			//Write to file
-			
-			File file = new File("/data/local.prop");
-			 
-			 try 
-			 {
-				 file.createNewFile();
-				 if (file.canWrite())
-			     {
-			    	 FileWriter filewriter = new FileWriter(file);
-			         BufferedWriter out = new BufferedWriter(filewriter);
-			         
-		             out.write(propText);
-		            // Toast.makeText(getApplicationContext(), "Succesfully Changed Properties", Toast.LENGTH_SHORT).show();
-		             out.close();
-			    	 
-		             AsyncApply aa=new AsyncApply();
-		             aa.execute(whitelist,prevwhitelist);
-		         }
-			     else
-			     {
-			    	 Toast.makeText(getApplicationContext(), "Cannot Write to local.prop", Toast.LENGTH_SHORT).show();
-			             
-		         }
-		     
-			 } catch (IOException e) {
-			    Log.e("TAG", "Could not write file " + e.getMessage());
-			 }
-	
-		}
-		else
-		{
-			Toast.makeText(getApplicationContext(), "Unable to mount /data", Toast.LENGTH_SHORT).show();
-		}
+		AsyncApply aa=new AsyncApply();
+        aa.execute();
+		
 	}
 	
 	//Asynctask to apply changes without restarting
-	private class AsyncApply extends AsyncTask<String, Void, Void>
+	private class AsyncApply extends AsyncTask<Void, Void, Void>
 	{
 	
 		@Override
-		protected Void doInBackground(String... params) //Loads prop into aBuffer and return list of apps installed
+		protected Void doInBackground(Void... params) //Loads prop into aBuffer and return list of apps installed
 		{
-			String whitelist=params[0];
-			String prevwhitelist=params[1];
+			        
+			List<String> res=null;
+			boolean result=RootTools.remount("/data/", "rw");
 			try {
- 	        	//RootTools.sendShell("chmod 0777 /system/build.prop", 0);
- 	        	List<String> a= RootTools.sendShell("setprop hwui.whitelist "+whitelist, 0);
- 	        	
- 	        	
- 			} catch (IOException e1) {
- 				// TODO Auto-generated catch block
- 				e1.printStackTrace();
- 			} catch (RootToolsException e1) {
- 				// TODO Auto-generated catch block
- 				e1.printStackTrace();
- 			} catch (TimeoutException e1) {
- 				// TODO Auto-generated catch block
- 				e1.printStackTrace();
- 			}
-         
-         boolean now;
-         boolean prev;
-         for(ApplicationInfo appinfo: packages)
-         {
-        	 now=whitelist.contains(appinfo.packageName);
-        	 prev=prevwhitelist.contains(appinfo.packageName);
-        	 if(((!now&&prev)||(now&&!prev))&&!appinfo.packageName.equals("android"))
-        	 {
-        		 Log.d("Close",appinfo.packageName);
-        		 try {
-     	        	//RootTools.sendShell("chmod 0777 /system/build.prop", 0);
-     	        	List<String> a= RootTools.sendShell("killall "+appinfo.packageName, 0);
-     	        	
-     	        	
-     			} catch (IOException e1) {
-     				// TODO Auto-generated catch block
-     				e1.printStackTrace();
-     			} catch (RootToolsException e1) {
-     				// TODO Auto-generated catch block
-     				e1.printStackTrace();
-     			} catch (TimeoutException e1) {
-     				// TODO Auto-generated catch block
-     				e1.printStackTrace();
-     			}
-        		 
-        	 }
-        	 
-         }
-			return null;
+				if(result)
+				{
+					res=RootTools.sendShell("cd "+HWUI_ALLOW+"; ls", 0);
+					if(new File(HWUI_ALLOW).exists());
+					{
+						//delete it
+						RootTools.sendShell("rm -rf "+HWUI_ALLOW, 0);
+					}
+					
+					RootTools.sendShell("mkdir "+HWUI_ALLOW, 0);
+	
+					SparseBooleanArray sel=	listView.getCheckedItemPositions();
+					
+					for(int i=0;i<packages.size();i++)
+					{
+						if(sel.get(i))
+						{
+							
+								RootTools.sendShell("touch "+HWUI_ALLOW+packages.get(i).packageName, 0);
+							
+						}
+					}
+					
+					 
+				}
+				else
+				{
+					Toast.makeText(getApplicationContext(), "Unable to mount /data", Toast.LENGTH_SHORT).show();
+				}
+				
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (RootToolsException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (TimeoutException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+	         boolean now;
+	         boolean prev;
+	         for(ApplicationInfo appinfo: packages)
+	         {
+	        	 now=isWhitelist(appinfo.packageName);
+	        	 prev=res.contains(appinfo.packageName);
+	        	 if(((!now&&prev)||(now&&!prev)))
+	        	 {
+	        		 Log.d("Close",appinfo.packageName);
+	        		try {
+	     	        	
+	     	        	List<String> a= RootTools.sendShell("killall "+appinfo.packageName, 0);
+	     	        } catch (IOException e1) {
+	     				// TODO Auto-generated catch block
+	     				e1.printStackTrace();
+	     			} catch (RootToolsException e1) {
+	     				// TODO Auto-generated catch block
+	     				e1.printStackTrace();
+	     			} catch (TimeoutException e1) {
+	     				// TODO Auto-generated catch block
+	     				e1.printStackTrace();
+	     			}
+	        	 }
+	        	 
+	         }
+				return null;
 		}
 	
+
 		@Override
 		protected void onPreExecute() 
 		{
@@ -423,17 +306,19 @@ public class HWASelectorActivity extends ListActivity {
 	private void saveBackup() 
 	{
 		String output="";
-		String wui=getWhitelistString();
+		//String wui=getWhitelistString();
 		for (int j = 0; j < packages.size(); j++)
 		{
 			ApplicationInfo packageInfo=packages.get(j);
-			if(wui.contains(packageInfo.packageName)&&!packageInfo.packageName.equals("android"))
-				
-			if(output!="")
-				output+=","+packageInfo.packageName;
-		    else
-		    	output+=packageInfo.packageName;
-		 }
+			if(isWhitelist(packageInfo.packageName))
+			{
+				if(output!="")
+					output+=","+packageInfo.packageName;
+			    else
+			    	output+=packageInfo.packageName;
+			 }
+		}
+		
 		File file = new File("/sdcard/hwa_backup");
 	 
 		 try
@@ -442,6 +327,7 @@ public class HWASelectorActivity extends ListActivity {
 			 BufferedWriter out = new BufferedWriter(filewriter);
 			 out.write(output);
 	         Toast.makeText(getApplicationContext(), "Succesfully Backed Up", Toast.LENGTH_SHORT).show();
+	         out.close();
 		 } 
 		 catch (IOException e) {
 			 	Log.e("TAG", "Could not write file " + e.getMessage());
@@ -470,16 +356,20 @@ public class HWASelectorActivity extends ListActivity {
 		
 		
 			myReader.close();
-			restoreText.replace(",",delimiter);
 			
-			if(propText.equals(""))
-				propText="hwui.whitelist="+restoreText+"\n";
-			else
-				propText=propText.replace("hwui.whitelist="+getWhitelistString()+"\n", "hwui.whitelist="+restoreText+"\n");
+			for (int j = 0; j < packages.size(); j++)
+	        {
+	        	ApplicationInfo packageInfo=packages.get(j);
+	        	if(restoreText.contains(","+packageInfo.packageName)||restoreText.contains(packageInfo.packageName+","))
+	        		listView.setItemChecked(j, true);
+	        	else
+	        		listView.setItemChecked(j, false);
+	        }
 			
-			refreshList();
+				save();
+			
 			Toast.makeText(getApplicationContext(), "Backup Restored", Toast.LENGTH_SHORT).show();
-		    save();
+		   
 		
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
@@ -489,6 +379,12 @@ public class HWASelectorActivity extends ListActivity {
 			// TODO Auto-generated catch block
 			Toast.makeText(getApplicationContext(), "Cannot access SDCARD", Toast.LENGTH_SHORT).show();
 			       
+		} catch (RootToolsException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (TimeoutException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 	
@@ -528,7 +424,18 @@ public class HWASelectorActivity extends ListActivity {
         // Handle item selection
     	switch (item.getItemId()) {
 		    case R.id.menu_save:
-		        save();
+			try {
+				save();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (RootToolsException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (TimeoutException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		        return true;
 		        
 		    case R.id.menu_selall:
